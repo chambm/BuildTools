@@ -16,9 +16,17 @@ runs:
       env: 
         KSP_ZIP_PASSWORD: ${{ inputs.KSP_ZIP_PASSWORD }}
       run: |
-        curl https://ksp-ro.s3-us-west-2.amazonaws.com/KSPAssemblies-1.12.zip --output /tmp/bins.zip
+        set -e
+        # Self-hosted, AES-256 + header-encrypted .7z of the reference assemblies (filenames hidden).
+        curl -sSL https://raw.githubusercontent.com/chambm/BuildTools/master/KSPAssemblies-1.12.7z --output /tmp/bins.7z
         KSP_DLL_PATH="/opt/ksp/assembly"
         echo "ksp-dll-path=${KSP_DLL_PATH}" >> $GITHUB_OUTPUT
         mkdir -p "${KSP_DLL_PATH}"
-        unzip -P "${KSP_ZIP_PASSWORD}" '/tmp/bins.zip' -d "${KSP_DLL_PATH}"
-        rm '/tmp/bins.zip'
+        # Pick a 7z binary (runners usually ship one); install p7zip-full only if none is present.
+        if command -v 7z >/dev/null 2>&1; then SZ=7z
+        elif command -v 7za >/dev/null 2>&1; then SZ=7za
+        elif command -v 7zr >/dev/null 2>&1; then SZ=7zr
+        else sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full; SZ=7za
+        fi
+        "$SZ" x -p"${KSP_ZIP_PASSWORD}" -o"${KSP_DLL_PATH}" -y /tmp/bins.7z
+        rm '/tmp/bins.7z'
